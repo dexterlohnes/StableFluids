@@ -13,8 +13,18 @@ namespace StableFluids
         [SerializeField] float _viscosity = 1e-6f;
         [SerializeField] float _force = 300;
         [SerializeField] float _exponent = 200;
-        [SerializeField] Texture2D _initial;
+        [SerializeField] Texture _initial;
+        [SerializeField] bool isRunning = true;
 
+        #endregion
+        
+        #region Properties
+
+        public void SetInitial(RenderTexture texture)
+        {
+            _initial = texture;
+        }
+        
         #endregion
 
         #region Internal resources
@@ -87,6 +97,18 @@ namespace StableFluids
         {
             _shaderSheet = new Material(_shader);
 
+            AllocateTextureBuffers();
+
+
+            #if UNITY_IOS
+            Application.targetFrameRate = 60;
+            #endif
+
+            BeginSimulation();
+        }
+
+        private void AllocateTextureBuffers()
+        {
             VFB.V1 = AllocateBuffer(2);
             VFB.V2 = AllocateBuffer(2);
             VFB.V3 = AllocateBuffer(2);
@@ -95,18 +117,29 @@ namespace StableFluids
 
             _colorRT1 = AllocateBuffer(4, Screen.width, Screen.height);
             _colorRT2 = AllocateBuffer(4, Screen.width, Screen.height);
+        }
 
+        public void BeginSimulation()
+        {
+//            if (isRunning)
+//            {
+//                DestroyTextures();
+//                
+//                AllocateTextureBuffers();
+//            }
             Graphics.Blit(_initial, _colorRT1);
-
-        #if UNITY_IOS
-            Application.targetFrameRate = 60;
-        #endif
+            isRunning = true;
         }
 
         void OnDestroy()
         {
             Destroy(_shaderSheet);
 
+            DestroyTextures();
+        }
+
+        private void DestroyTextures()
+        {
             Destroy(VFB.V1);
             Destroy(VFB.V2);
             Destroy(VFB.V3);
@@ -119,6 +152,8 @@ namespace StableFluids
 
         void Update()
         {
+            if (!isRunning) return;
+            
             var dt = Time.deltaTime;
             var dx = 1.0f / ResolutionY;
 
