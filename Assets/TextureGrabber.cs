@@ -10,7 +10,7 @@ public class TextureGrabber : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        texture = new RenderTexture(Screen.width, Screen.height, 1);
+        texture = new RenderTexture(Screen.width, Screen.height, 1, RenderTextureFormat.ARGBHalf);
         GetComponent<Camera>().targetTexture = texture;
     }
 
@@ -19,6 +19,8 @@ public class TextureGrabber : MonoBehaviour
         if (shouldGrab)
         {
             var fluid = FindObjectOfType<Fluid>();
+            var comparer = FindObjectOfType<TextureComparer>();
+            comparer.SetOriginalTexture(texture);
             fluid.SetInitial(texture);
             fluid.BeginSimulation();
             shouldGrab = false;

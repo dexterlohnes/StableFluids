@@ -16,3 +16,4 @@ Desktop.ini
 /Library
 /Temp
 obj/Debug
+*.meta

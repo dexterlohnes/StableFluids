@@ -128,6 +128,8 @@ namespace StableFluids
 //                AllocateTextureBuffers();
 //            }
             Graphics.Blit(_initial, _colorRT1);
+            var comparer = FindObjectOfType<TextureComparer>();
+            comparer.currentTexture = _colorRT1;
             isRunning = true;
         }
 
