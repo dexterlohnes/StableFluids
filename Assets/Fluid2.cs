@@ -10,7 +10,8 @@ namespace StableFluids
         #region Editable attributes
 
         [SerializeField] int _resolution = 512;
-        [SerializeField] float _viscosity = 1e-6f;
+        // [SerializeField] float _viscosity = 1e-6f;
+        [SerializeField] private float _diffusion = 100000000000;
         [SerializeField] float _source = 1.0f;
         [SerializeField] float _sourceDistance = 100;
         [SerializeField] Texture _initial;
@@ -42,6 +43,7 @@ namespace StableFluids
         static class Kernels
         {
             public const int AddSource = 0;
+            public const int Diffusion = 1;
         }
 
         int ThreadCountX { get { return (_resolution                                + 7) / 8; } }
@@ -53,7 +55,9 @@ namespace StableFluids
         // Vector field buffers
         static class VFB
         {
-            public static RenderTexture D1; // density
+            public static RenderTexture D1; // density - usually for beginning of frame
+            public static RenderTexture D2; // density - end of frame / final density
+            public static RenderTexture D3; // density - buffer for GaussSeidel
         }
 
         // Color buffers (for double buffering)
@@ -101,6 +105,8 @@ namespace StableFluids
         private void AllocateTextureBuffers()
         {
             VFB.D1 = AllocateBuffer(1);
+            VFB.D2 = AllocateBuffer(1);
+            VFB.D3 = AllocateBuffer(1);
             // VFB.V2 = AllocateBuffer(2);
             // VFB.V3 = AllocateBuffer(2);
             // VFB.P1 = AllocateBuffer(1);
@@ -128,6 +134,7 @@ namespace StableFluids
         private void DestroyTextures()
         {
             Destroy(VFB.D1);
+            Destroy(VFB.D2);
 
             Destroy(_colorRT1);
             Destroy(_colorRT2);
@@ -154,18 +161,36 @@ namespace StableFluids
 
             // Add source
             _compute.SetVector("SourceOrigin", input);
-            Debug.Log(("Setting SourceOrigin to ", input));
+            // Debug.Log(("Setting SourceOrigin to ", input));
             _compute.SetFloat("SourceDistance", _sourceDistance);
-            _compute.SetTexture(Kernels.AddSource, "D_out", VFB.D1);
-            _compute.SetTexture(Kernels.AddSource, "D_in", VFB.D1);
+            _compute.SetTexture(Kernels.AddSource, "D_out", VFB.D2); // D2 will hold source-added density
+            _compute.SetTexture(Kernels.AddSource, "D_in", VFB.D1); // D1 is our previous ending density
 
-            if (Input.GetMouseButton(0))
+            if (Input.GetMouseButtonDown(0))
                 // Add Source
                 _compute.SetFloat("SourceStrength", _source);
             else
                 _compute.SetFloat("SourceStrength", 0f);
 
             _compute.Dispatch(Kernels.AddSource, _resolution, _resolution, 1);
+            
+            
+            // Diffusion
+            Graphics.CopyTexture(VFB.D2, VFB.D1); // Copy so that we have source established in both textures
+            Graphics.CopyTexture(VFB.D2, VFB.D3);
+            _compute.SetTexture(Kernels.Diffusion, "D_in", VFB.D1); // pre-diffusion
+            _compute.SetFloat("Alpha", dt * _diffusion); // pre-diffusion
+
+            for (var i = 0; i < 10; i++)
+            {
+                _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.D3); 
+                _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.D2);
+                _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
+
+                _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.D2); // D2 will be post-diffusion
+                _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.D3); // GaussSeidel buffer
+                _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
+            }
 
             // // Projection setup
             // _compute.SetTexture(Kernels.PSetup, "W_in", VFB.V3);
@@ -208,12 +233,14 @@ namespace StableFluids
             // _colorRT2 = temp;
             //
             // _previousInput = input;
+            
+            Graphics.CopyTexture(VFB.D2, VFB.D1); // Copy so that we have diffusion in texture for next time
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
             // Graphics.Blit(_colorRT1, destination, _shaderSheet, 1); // render pass
-            Graphics.Blit(VFB.D1, destination, _shaderSheet, 1); // render pass
+            Graphics.Blit(VFB.D2, destination, _shaderSheet, 1); // render pass
         }
 
         #endregion

@@ -1,8 +1,8 @@
 ﻿// StableFluids - A GPU implementation of Jos Stam's Stable Fluids on Unity
-// https://github.com/keijiro/StableFluids
+// Inspired by https://github.com/keijiro/StableFluids
 
 #pragma kernel AddSource
-//#pragma kernel Force
+#pragma kernel GaussSeidel
 //#pragma kernel PSetup
 //#pragma kernel PFinish
 //#pragma kernel Jacobi1
@@ -11,6 +11,10 @@
 // Common parameter
 float Time;
 float DeltaTime;
+
+// Diffusion
+float Diff;
+float Alpha;
 
 // External source
 float2 SourceOrigin;
@@ -22,6 +26,8 @@ float SourceDistance; // How far we reach when placing source on an even gradien
 Texture2D<float2> D_in;
 SamplerState samplerD_in;
 RWTexture2D<float2> D_out;
+SamplerState samplerD_gsbuff;
+RWTexture2D<float2> D_gsbuff; // gauss seidel relaxation buffer
 
 // Add-force step
 //[numthreads(8, 8, 1)]
@@ -41,5 +47,30 @@ void AddSource(uint2 tid : SV_DispatchThreadID)
     
     float amp = max(0, SourceStrength * (1.0 - (dist / SourceDistance)));
     
+    // Since we're adding source on top of something,
+    // D_out and D_in are probably going to be the same target
     D_out[tid] = D_in[tid] + amp;
+}
+
+// Our diffusion step
+[numthreads(8, 8, 1)]
+void GaussSeidel(uint2 tid : SV_DispatchThreadID)
+{
+    
+    D_out[tid] = (D_in[tid] + Alpha * (
+        D_gsbuff[tid - int2(1, 0)]  + 
+        D_gsbuff[tid + int2(1, 0)] +
+        D_gsbuff[tid - int2(0, 1)] +
+        D_gsbuff[tid + int2(0, 1)]
+    )) / (1. + 4.*Alpha);
+    
+    
+    /*
+    D_out[tid] = (D_gsbuff[tid - int2(1, 0)] + D_gsbuff[tid + int2(1, 0)] +
+                   D_gsbuff[tid - int2(0, 1)] + D_gsbuff[tid + int2(0, 1)] + Alpha * D_in[tid]) / (1. + 4.*Alpha);
+    */
+    //uint2 dim;
+    //D_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+    
+    //D_out[tid] = float(tid) / float(dim);
 }
