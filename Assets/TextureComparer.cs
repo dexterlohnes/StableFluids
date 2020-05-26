@@ -25,18 +25,10 @@ public class TextureComparer : MonoBehaviour
     public void SetOriginalTexture(Texture tex)
     {
         originalTexture = tex;
-        data = new Int32[originalTexture.height * originalTexture.width];
+        data = new Int32[originalTexture.height * originalTexture.width / 10];
         buffer?.Dispose();
         buffer = new ComputeBuffer(data.Length, 4);
         
-        bufferTex = new RenderTexture(tex.width, tex.height, 1, RenderTextureFormat.ARGBHalf);
-        bufferTex.enableRandomWrite = true;
-        
-        
-        
-        colors = new float[originalTexture.height * originalTexture.width * 4];
-        colorsBuffer?.Dispose();
-        colorsBuffer = new ComputeBuffer(colors.Length, 32);
     }
 
     void Update()
@@ -55,15 +47,11 @@ public class TextureComparer : MonoBehaviour
         //INITIALIZE DATA HERE
 
         buffer.SetData(data);
-        colorsBuffer.SetData(colors);
         _comparer.SetBuffer(Kernels.Compare, "compareResult", buffer);
-        _comparer.SetBuffer(Kernels.Compare, "colors", colorsBuffer);
         _comparer.SetTexture(Kernels.Compare, "OrigTex", originalTexture);
         _comparer.SetTexture(Kernels.Compare, "CurTex", currentTexture);
-        _comparer.SetTexture(Kernels.Compare, "Tex_out", bufferTex);
         _comparer.Dispatch(Kernels.Compare, originalTexture.width, originalTexture.height,1);
         buffer.GetData(data);
-        colorsBuffer.GetData(colors);
 
         Int32 numChanged = 0;
         Int32 numUnchanged = 0;

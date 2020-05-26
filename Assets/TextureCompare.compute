@@ -1,7 +1,4 @@
-﻿// StableFluids - A GPU implementation of Jos Stam's Stable Fluids on Unity
-// https://github.com/keijiro/StableFluids
-
-#pragma kernel Compare
+﻿#pragma kernel Compare
 
 Texture2D<float4> CurTex; // Current texture i.e. a representation of the edited state
 SamplerState samplerCurTex;
@@ -17,9 +14,13 @@ void Compare(uint2 tid : SV_DispatchThreadID)
     int2 dim;
     OrigTex.GetDimensions(dim.x, dim.y);
     
-    float2 uv = tid / dim;
+    float2 uv = (tid / 1.0) / (dim / 1.0);
     
     uint i = (tid.x + tid.y * dim.x); 
+    
+    if (i % 10 > 0) {
+        return;
+    }
 
     float4 curCol = CurTex.SampleLevel(samplerCurTex, uv, 0);
     float4 origCol = OrigTex.SampleLevel(samplerOrigTex, uv, 0);
@@ -27,8 +28,8 @@ void Compare(uint2 tid : SV_DispatchThreadID)
     float4 diff = origCol - curCol;
 
     if(diff.x == 0 && diff.y == 0 && diff.z == 0) {
-        compareResult[i] = 0; // Unchanged
+        compareResult[i/10] = 0; // Unchanged
     } else {
-        compareResult[i] = 1; // Changed
+        compareResult[i/10] = 1; // Changed
     }
 }

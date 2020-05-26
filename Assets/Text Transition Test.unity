@@ -96,6 +96,7 @@ LightmapSettings:
     m_PVRFilteringAtrousPositionSigmaAO: 1
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
+    m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 0}
   m_UseShadowmask: 1
 --- !u!196 &4
@@ -178,6 +179,7 @@ GameObject:
   - component: {fileID: 1163476469}
   - component: {fileID: 1163476468}
   - component: {fileID: 1163476466}
+  - component: {fileID: 1163476467}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -192,19 +194,39 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1163476465}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 68b35f6f5dea6274db0eda640e08abc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _resolution: 1024
-  _viscosity: 1e-10
+  _viscosity: 100
   _force: 300
   _exponent: 200
   _initial: {fileID: 2800000, guid: ded36cca018f2e741aa6a4c55495a7f0, type: 3}
   isRunning: 0
   _compute: {fileID: 7200000, guid: cd1f70f1f6b4beb45a02e1c088f0a109, type: 3}
   _shader: {fileID: 4800000, guid: 0486f5f9fa757fa49a5b9613050036fb, type: 3}
+--- !u!114 &1163476467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1163476465}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42334c6b770e94aa9a9ff9212978ca20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _resolution: 1024
+  _viscosity: 0.000001
+  _source: 1
+  _sourceDistance: 0.1
+  _initial: {fileID: 2800000, guid: ded36cca018f2e741aa6a4c55495a7f0, type: 3}
+  isRunning: 1
+  _compute: {fileID: 7200000, guid: e01ca050101b04041a03baa478e587f0, type: 3}
+  _shader: {fileID: 4800000, guid: 99d1e86f4d0a943e59f85380ecf80591, type: 3}
 --- !u!20 &1163476468
 Camera:
   m_ObjectHideFlags: 0
@@ -297,6 +319,7 @@ MonoBehaviour:
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
+  m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -423,6 +446,7 @@ MeshRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:

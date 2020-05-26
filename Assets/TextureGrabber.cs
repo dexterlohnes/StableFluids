@@ -5,7 +5,7 @@ public class TextureGrabber : MonoBehaviour
 {
     [SerializeField] private bool shouldGrab = false;
 
-    public RenderTexture texture;
+    [HideInInspector] public RenderTexture texture;
     
     // Start is called before the first frame update
     void Start()
