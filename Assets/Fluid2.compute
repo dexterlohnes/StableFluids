@@ -19,6 +19,7 @@ float DeltaTime;
 // Diffusion
 float Diff;
 float Alpha;
+float Beta;
 
 // External source
 float2 SourceOrigin;
@@ -61,7 +62,7 @@ void AddSource(uint2 tid : SV_DispatchThreadID)
     
     float2 dist = distance(SourceOrigin, pos);
     
-    float amp = max(0, SourceStrength * (1.0 - (dist / SourceDistance)));
+    float amp = max(0, SourceStrength * (1.0 - (dist * SourceDistance)));
     
     // Since we're adding source on top of something,
     // D_out and D_in are probably going to be the same target
@@ -77,7 +78,7 @@ void GaussSeidel(uint2 tid : SV_DispatchThreadID)
         D_gsbuff[tid + int2(1, 0)] +
         D_gsbuff[tid - int2(0, 1)] +
         D_gsbuff[tid + int2(0, 1)])
-    ) / (1. + 4.*Alpha);
+    ) * Beta;
 }
 
 [numthreads(8, 8, 1)]

@@ -199,7 +199,8 @@ namespace StableFluids
             Graphics.CopyTexture(VFB.D2, VFB.D3);
             _compute.SetTexture(Kernels.Diffusion, "D_in", VFB.D1); // pre-diffusion
             _compute.SetFloat("Alpha", dt * _diffusion * _resolution * _resolution); // pre-diffusion
-
+            _compute.SetFloat("Beta", 1f / (1f + 4f * (dt * _diffusion * _resolution * _resolution))); // pre-diffusion
+                // / (1. + 4.*Alpha)
             for (var i = 0; i < 10; i++)
             {
                 _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.D3); 
@@ -255,7 +256,7 @@ namespace StableFluids
         {
             // Graphics.Blit(_colorRT1, destination, _shaderSheet, 1); // render pass
             Graphics.Blit(VFB.D2, destination, _shaderSheet, 1); // render pass
-            // Graphics.Blit(VFB.V1, destination, _shaderSheet, 1); // render pass
+            // Graphics.Blit    (VFB.V1, destination, _shaderSheet, 1); // render pass
         }
 
         #endregion
