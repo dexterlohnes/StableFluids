@@ -2,7 +2,6 @@
 // https://github.com/keijiro/StableFluids
 
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 
 namespace StableFluids
 {
@@ -12,13 +11,12 @@ namespace StableFluids
 
         [SerializeField] int _resolution = 512;
         // [SerializeField] float _viscosity = 1e-6f;
-        [SerializeField] private float _diffusion = 100000000000;
+        [SerializeField] private float _diffusion = 1000;
         [SerializeField] float _source = 1.0f;
         [SerializeField] float _sourceDistance = 100;
         [SerializeField] Texture _initial;
         [SerializeField] bool isRunning = true;
-        [SerializeField] private Texture2D velocityField;
-        private Texture2D velFieldCopy;
+        [SerializeField] private float _velocityDiffusion = 10;
 
         #endregion
         
@@ -65,6 +63,8 @@ namespace StableFluids
             public static RenderTexture D2; // density - end of frame / final density
             public static RenderTexture D3; // density - buffer for GaussSeidel
             public static RenderTexture V1; // velocity field - RG corresponds to XY velocity components
+            public static RenderTexture V2; // used for diffusion and for height field
+            public static RenderTexture V3; // addtl buffer for Gauss Seidel diffusion
         }
 
         // Color buffers (for double buffering)
@@ -101,17 +101,6 @@ namespace StableFluids
 
             AllocateTextureBuffers();
 
-            // velFieldCopy = new Texture2D(velocityField.width, velocityField.height, velocityField.format, velocityField.mipmapCount, false);
-            // Graphics.CopyTexture(velocityField, velFieldCopy);
-            // velFieldCopy.Resize(VFB.V1.width, VFB.V1.height);
-            // Graphics.CopyTexture(velFieldCopy, VFB.V1);
-            
-            // velFieldCopy = new Texture2D(velocityField.width, velocityField.height, velocityField.format, velocityField.mipmapCount, false);
-            // Graphics.CopyTexture(velocityField, velFieldCopy);
-            // velocityField.Resize(VFB.V1.width, VFB.V1.height);
-            // Graphics.CopyTexture(velocityField, VFB.V1);
-
-
             #if UNITY_IOS
             Application.targetFrameRate = 60;
             #endif
@@ -126,6 +115,8 @@ namespace StableFluids
             VFB.D2 = AllocateBuffer(1);
             VFB.D3 = AllocateBuffer(1);
             VFB.V1 = AllocateBuffer(2);
+            VFB.V2 = AllocateBuffer(2);
+            VFB.V3 = AllocateBuffer(2);
             // VFB.V1.enableRandomWrite = true;
             // VFB.V3 = AllocateBuffer(2);
             // VFB.P1 = AllocateBuffer(1);
@@ -162,6 +153,8 @@ namespace StableFluids
             Destroy(VFB.D2);
             Destroy(VFB.D3);
             Destroy(VFB.V1);
+            Destroy(VFB.V2);
+            Destroy(VFB.V3);
 
             Destroy(_colorRT1);
             Destroy(_colorRT2);
@@ -183,7 +176,6 @@ namespace StableFluids
             // Common variables
             _compute.SetFloat("Time", Time.time);
             _compute.SetFloat("DeltaTime", dt);
-
 
 
             // Add source
@@ -225,12 +217,38 @@ namespace StableFluids
             _compute.SetTexture(Kernels.Advection, "D_in", VFB.D0);
             _compute.SetTexture(Kernels.Advection, "D_out", VFB.D2);
             _compute.Dispatch(Kernels.Advection, ThreadCountX, ThreadCountY, 1);
-
-
-
+            
+            // // Simulate source set 
+            // Graphics.CopyTexture(VFB.V1, VFB.V2); // V2 ends up being our source-added texture
+            //
+            // // Diffusion
+            // // Graphics.CopyTexture(VFB.V2, VFB.V1); // Copy so that we have source established in both textures
+            // Graphics.CopyTexture(VFB.V2, VFB.V3);
+            // _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V1); // pre-diffusion
+            // _compute.SetFloat("Alpha", dt * _velocityDiffusion * _resolution * _resolution); // pre-diffusion
+            //
+            // for (var i = 0; i < 10; i++)
+            // {
+            //     _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V3); 
+            //     _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.V2);
+            //     _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
+            //
+            //     _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V2); // D2 will be post-diffusion
+            //     _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.V3); // GaussSeidel buffer
+            //     _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
+            // }
+            
+            
+            
+            
+            // End
             var temp = VFB.D1;
             VFB.D1 = VFB.D2;
             VFB.D2 = temp;
+
+            // temp = VFB.V1;
+            // VFB.V1 = VFB.V2;
+            // VFB.V2 = temp;
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)

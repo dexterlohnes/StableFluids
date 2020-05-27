@@ -2,10 +2,13 @@
 // Inspired by https://github.com/keijiro/StableFluids
 
 #pragma kernel AddSource
+// GaussSeidel == Diffusion
 #pragma kernel GaussSeidel
 #pragma kernel Advect
 #pragma kernel CreateVelocityField
-//#pragma kernel PFinish
+#pragma kernel ProjectionSetup
+#pragma kernel Projection
+#pragma kernel ProjectionFinish
 //#pragma kernel Jacobi1
 //#pragma kernel Jacobi2
 
@@ -33,6 +36,14 @@ RWTexture2D<float2> D_gsbuff; // gauss seidel relaxation buffer
 // V (velocity field - physical forces)
 RWTexture2D<float2> V_in;
 SamplerState samplerV_in;
+
+RWTexture2D<float2> V_out;
+SamplerState samplerV_out;
+
+// H (height field - for our projection step)
+RWTexture2D<float2> H_in;
+SamplerState samplerH_in;
+
 
 // Add-force step
 //[numthreads(8, 8, 1)]
@@ -97,4 +108,38 @@ void CreateVelocityField(uint2 tid : SV_DispatchThreadID) {
     V_in.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
                 
     V_in[tid] = float2(tid) / float2(dim);       
+}
+
+[numthreads(8, 8, 1)]
+void ProjectionSetup(uint2 tid : SV_DispatchThreadID) {
+    uint2 dim;
+    V_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+    
+    float h = 1.0 / dim.y;
+    
+    int i = tid.x;
+    int j = tid.y;
+                
+    H_in[tid].x = 0.;
+    H_in[tid].y = -0.5 * h * (V_out[int2(i+1,j)].x - V_out[int2(i-1, j)].x + V_out[int2(i, j+1)].y - V_out[int2(i, j-1)].y);
+}
+
+[numthreads(8, 8, 1)]
+void Projection(uint2 tid : SV_DispatchThreadID) {
+    int i = tid.x;
+    int j = tid.y;
+    H_in[tid].x = (H_in[int2(i,j)]+H_in[int2(i-1,j)]+H_in[int2(i+1,j)]+H_in[int2(i,j-1)]+H_in[int2(i,j+1)])/4.;
+}
+
+[numthreads(8, 8, 1)]
+void ProjectionFinish(uint2 tid : SV_DispatchThreadID) {
+    uint2 dim;
+    V_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+    float h = 1.0 / dim.y;
+    
+    int i = tid.x;
+    int j = tid.y;
+
+    V_out[tid].x -= 0.5 * (H_in[int2(i+1, j)].x - H_in[int2(i-1,j)].x) / h;
+    V_out[tid].y -= 0.5 * (H_in[int2(i, j+1)].x - H_in[int2(i,j-1)].x) / h;
 }
