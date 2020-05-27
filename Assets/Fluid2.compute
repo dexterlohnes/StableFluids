@@ -3,7 +3,8 @@
 
 #pragma kernel AddSource
 #pragma kernel GaussSeidel
-//#pragma kernel PSetup
+#pragma kernel Advect
+#pragma kernel CreateVelocityField
 //#pragma kernel PFinish
 //#pragma kernel Jacobi1
 //#pragma kernel Jacobi2
@@ -28,6 +29,10 @@ SamplerState samplerD_in;
 RWTexture2D<float2> D_out;
 SamplerState samplerD_gsbuff;
 RWTexture2D<float2> D_gsbuff; // gauss seidel relaxation buffer
+
+// V (velocity field - physical forces)
+RWTexture2D<float2> V_in;
+SamplerState samplerV_in;
 
 // Add-force step
 //[numthreads(8, 8, 1)]
@@ -56,21 +61,41 @@ void AddSource(uint2 tid : SV_DispatchThreadID)
 [numthreads(8, 8, 1)]
 void GaussSeidel(uint2 tid : SV_DispatchThreadID)
 {
-    
     D_out[tid] = (D_in[tid] + Alpha * (
         D_gsbuff[tid - int2(1, 0)]  + 
         D_gsbuff[tid + int2(1, 0)] +
         D_gsbuff[tid - int2(0, 1)] +
-        D_gsbuff[tid + int2(0, 1)]
-    )) / (1. + 4.*Alpha);
+        D_gsbuff[tid + int2(0, 1)])
+    ) / (1. + 4.*Alpha);
+}
+
+[numthreads(8, 8, 1)]
+void Advect(uint2 tid : SV_DispatchThreadID) {
+    uint2 dim;
+    D_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
     
+    int i, j, i0, j0, i1, j1;
+    float x, y, s0, t0, s1, t1;
     
-    /*
-    D_out[tid] = (D_gsbuff[tid - int2(1, 0)] + D_gsbuff[tid + int2(1, 0)] +
-                   D_gsbuff[tid - int2(0, 1)] + D_gsbuff[tid + int2(0, 1)] + Alpha * D_in[tid]) / (1. + 4.*Alpha);
-    */
-    //uint2 dim;
-    //D_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+    float dt0 = DeltaTime * dim.y;
     
-    //D_out[tid] = float(tid) / float(dim);
+    x = float(tid.x) - dt0 * V_in[tid].r; // r component - x velocity
+    y = float(tid.y) - dt0 * V_in[tid].g; // g component - y velocity
+    
+    if (x<0.5) x=0.5; if (x>float(dim.x)+0.5) x=float(dim.x)+0.5; i0=(int)x; i1=i0+1; 
+    if (y<0.5) y=0.5; if (y>float(dim.y)+0.5) y=float(dim.y)+0.5; j0=(int)y; j1=j0+1; 
+    s1 = x-i0; s0 = 1.-s1; t1 = y-j0; t0 = 1.-t1;
+    
+    D_out[tid] = s0*(t0*D_in[int2(i0,j0)] + t1*D_in[int2(i0,j1)]) + 
+                s1*(t0*D_in[int2(i1,j0)] + t1*D_in[int2(i1,j1)]);
+    //D_out[tid] = float(tid.x) / dim;     
+}
+
+
+[numthreads(8, 8, 1)]
+void CreateVelocityField(uint2 tid : SV_DispatchThreadID) {
+    uint2 dim;
+    V_in.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+                
+    V_in[tid] = float2(tid) / float2(dim);       
 }
