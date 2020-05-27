@@ -14,7 +14,7 @@ namespace StableFluids
         // [SerializeField] float _viscosity = 1e-6f;
         [SerializeField] private float _diffusion = 100000000000;
         [SerializeField] float _source = 1.0f;
-        [SerializeField] float _sourceDistance = 100;
+        [SerializeField] float _sourceDistance = 0.1f; // percentage of screen
         [SerializeField] Texture _initial;
         [SerializeField] bool isRunning = true;
         [SerializeField] private Texture2D velocityField;
@@ -121,11 +121,11 @@ namespace StableFluids
 
         private void AllocateTextureBuffers()
         {
-            VFB.D0 = AllocateBuffer(1);
-            VFB.D1 = AllocateBuffer(1);
-            VFB.D2 = AllocateBuffer(1);
-            VFB.D3 = AllocateBuffer(1);
-            VFB.V1 = AllocateBuffer(2);
+            VFB.D0 = AllocateBuffer(4);
+            VFB.D1 = AllocateBuffer(4);
+            VFB.D2 = AllocateBuffer(4);
+            VFB.D3 = AllocateBuffer(4);
+            VFB.V1 = AllocateBuffer(4);
             VFB.V1.enableRandomWrite = true;
             // VFB.V3 = AllocateBuffer(2);
             // VFB.P1 = AllocateBuffer(1);
@@ -176,7 +176,7 @@ namespace StableFluids
 
             // Input point
             var input = new Vector2(
-                (Input.mousePosition.x - Screen.width  * 0.5f) / Screen.width,
+                (Input.mousePosition.x - Screen.width  * 0.5f) / Screen.height,
                 (Input.mousePosition.y - Screen.height * 0.5f) / Screen.height
             );
 
@@ -199,7 +199,7 @@ namespace StableFluids
             else
                 _compute.SetFloat("SourceStrength", 0f);
 
-            _compute.Dispatch(Kernels.AddSource, _resolution, _resolution, 1);
+            _compute.Dispatch(Kernels.AddSource, ThreadCountX, ThreadCountY, 1);
             
             
             // Diffusion
@@ -226,56 +226,19 @@ namespace StableFluids
             _compute.SetTexture(Kernels.Advection, "D_out", VFB.D2);
             _compute.Dispatch(Kernels.Advection, ThreadCountX, ThreadCountY, 1);
 
-            // // Projection setup
-            // _compute.SetTexture(Kernels.PSetup, "W_in", VFB.V3);
-            // _compute.SetTexture(Kernels.PSetup, "DivW_out", VFB.V2);
-            // _compute.SetTexture(Kernels.PSetup, "P_out", VFB.P1);
-            // _compute.Dispatch(Kernels.PSetup, ThreadCountX, ThreadCountY, 1);
-            //
-            // // Jacobi iteration
-            // _compute.SetFloat("Alpha", -dx * dx);
-            // _compute.SetFloat("Beta", 4);
-            // _compute.SetTexture(Kernels.Jacobi1, "B1_in", VFB.V2);
-            //
-            // for (var i = 0; i < 20; i++)
-            // {
-            //     _compute.SetTexture(Kernels.Jacobi1, "X1_in", VFB.P1);
-            //     _compute.SetTexture(Kernels.Jacobi1, "X1_out", VFB.P2);
-            //     _compute.Dispatch(Kernels.Jacobi1, ThreadCountX, ThreadCountY, 1);
-            //
-            //     _compute.SetTexture(Kernels.Jacobi1, "X1_in", VFB.P2);
-            //     _compute.SetTexture(Kernels.Jacobi1, "X1_out", VFB.P1);
-            //     _compute.Dispatch(Kernels.Jacobi1, ThreadCountX, ThreadCountY, 1);
-            // }
-            //
-            // // Projection finish
-            // _compute.SetTexture(Kernels.PFinish, "W_in", VFB.V3);
-            // _compute.SetTexture(Kernels.PFinish, "P_in", VFB.P1);
-            // _compute.SetTexture(Kernels.PFinish, "U_out", VFB.V1);
-            // _compute.Dispatch(Kernels.PFinish, ThreadCountX, ThreadCountY, 1);
-            //
-            // // Apply the velocity field to the color buffer.
-            // var offs = Vector2.one * (Input.GetMouseButton(1) ? 0 : 1e+7f);
-            // _shaderSheet.SetVector("_ForceOrigin", input + offs);
-            // _shaderSheet.SetFloat("_ForceExponent", _exponent);
-            // _shaderSheet.SetTexture("_VelocityField", VFB.V1);
-            // Graphics.Blit(_colorRT1, _colorRT2, _shaderSheet, 0); // Advect pass
-            //
-            // // Swap the color buffers.
-            // var temp = _colorRT1;
-            // _colorRT1 = _colorRT2;
-            // _colorRT2 = temp;
-            //
-            // _previousInput = input;
-            
-            Graphics.CopyTexture(VFB.D2, VFB.D1); // Copy so that we have diffusion in texture for next time
-            Graphics.CopyTexture(VFB.D2, VFB.D0); // Copy so that we have diffusion in texture for next time
+
+
+            var temp = VFB.D1;
+            VFB.D1 = VFB.D2;
+            VFB.D2 = temp;
+            // Graphics.CopyTexture(VFB.D2, VFB.D1); // Copy so that we have diffusion in texture for next time
+            // Graphics.CopyTexture(VFB.D2, VFB.D0); // Copy so that we have diffusion in texture for next time
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
             // Graphics.Blit(_colorRT1, destination, _shaderSheet, 1); // render pass
-            Graphics.Blit(VFB.D2, destination, _shaderSheet, 1); // render pass
+            Graphics.Blit(VFB.D1, destination, _shaderSheet, 1); // render pass
             // Graphics.Blit(VFB.V1, destination, _shaderSheet, 1); // render pass
         }
 
