@@ -193,7 +193,7 @@ namespace StableFluids
             _compute.SetTexture(Kernels.AddSource, "D_out", VFB.D2); // D2 will hold source-added density
             _compute.SetTexture(Kernels.AddSource, "D_in", VFB.D1); // D1 is our previous ending density
 
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButton(0))
                 // Add Source
                 _compute.SetFloat("SourceStrength", _source);
             else
