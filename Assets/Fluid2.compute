@@ -8,8 +8,6 @@
 #pragma kernel ProjectionSetup
 #pragma kernel Projection
 #pragma kernel ProjectionFinish
-//#pragma kernel Jacobi1
-//#pragma kernel Jacobi2
 
 // Common parameter
 float Time;
@@ -108,17 +106,7 @@ void CreateVelocityField(uint2 tid : SV_DispatchThreadID) {
     uint2 dim;
     V_in.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
     
-                
     V_in[tid] = float2(tid) / float2(dim);
-    
-    
-    /*
-    float2 pos = float2(tid);
-    pos.x /= float(dim.x);
-    pos.y /= float(dim.y); 
-    float2 dist = distance(float2(0.5, 0.5), pos);
-    V_in[tid] = float2(dist / 10.0) ;
-    */
 }
 
 [numthreads(8, 8, 1)]
