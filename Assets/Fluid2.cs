@@ -47,6 +47,9 @@ namespace StableFluids
             public const int Diffusion = 1;
             public const int Advection = 2;
             public const int CreateVelocityField = 3;
+            public const int ProjectionSetup = 4;
+            public const int Projection = 5;
+            public const int ProjectionFinish = 6;
         }
 
         int ThreadCountX { get { return (_resolution                                + 7) / 8; } }
@@ -62,6 +65,7 @@ namespace StableFluids
             public static RenderTexture D1; // density - usually for beginning of frame
             public static RenderTexture D2; // density - end of frame / final density
             public static RenderTexture D3; // density - buffer for GaussSeidel
+            public static RenderTexture V0; // velocity field - RG corresponds to XY velocity components
             public static RenderTexture V1; // velocity field - RG corresponds to XY velocity components
             public static RenderTexture V2; // used for diffusion and for height field
             public static RenderTexture V3; // addtl buffer for Gauss Seidel diffusion
@@ -114,6 +118,7 @@ namespace StableFluids
             VFB.D1 = AllocateBuffer(1);
             VFB.D2 = AllocateBuffer(1);
             VFB.D3 = AllocateBuffer(1);
+            VFB.V0 = AllocateBuffer(2);
             VFB.V1 = AllocateBuffer(2);
             VFB.V2 = AllocateBuffer(2);
             VFB.V3 = AllocateBuffer(2);
@@ -152,6 +157,7 @@ namespace StableFluids
             Destroy(VFB.D1);
             Destroy(VFB.D2);
             Destroy(VFB.D3);
+            Destroy(VFB.V0);
             Destroy(VFB.V1);
             Destroy(VFB.V2);
             Destroy(VFB.V3);
@@ -219,33 +225,115 @@ namespace StableFluids
             _compute.SetTexture(Kernels.Advection, "D_out", VFB.D2);
             _compute.Dispatch(Kernels.Advection, ThreadCountX, ThreadCountY, 1);
             
-            // // Simulate source set 
+            
+            // Simulate source set 
+            _compute.SetVector("SourceOrigin", input);
+            // Debug.Log(("Setting SourceOrigin to ", input));
+            _compute.SetFloat("SourceDistance", _sourceDistance);
+            _compute.SetTexture(Kernels.AddSource, "D_out", VFB.V2);
+            _compute.SetTexture(Kernels.AddSource, "D_in", VFB.V1);
+            
+            if (Input.GetMouseButton(1))
+                // Add Source
+                _compute.SetFloat("SourceStrength", _source);
+            else
+                _compute.SetFloat("SourceStrength", 0f);
+            
+            _compute.Dispatch(Kernels.AddSource, _resolution, _resolution, 1);
+            
             // Graphics.CopyTexture(VFB.V1, VFB.V2); // V2 ends up being our source-added texture
-            //
-            // // Diffusion
-            // // Graphics.CopyTexture(VFB.V2, VFB.V1); // Copy so that we have source established in both textures
-            // Graphics.CopyTexture(VFB.V2, VFB.V3);
-            // _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V1); // pre-diffusion
-            // _compute.SetFloat("Alpha", dt * _velocityDiffusion * _resolution * _resolution); // pre-diffusion
-            //
-            // for (var i = 0; i < 10; i++)
-            // {
-            //     _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V3); 
-            //     _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.V2);
-            //     _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
-            //
-            //     _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V2); // D2 will be post-diffusion
-            //     _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.V3); // GaussSeidel buffer
-            //     _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
-            // }
+            
+            // Diffusion
+            Graphics.CopyTexture(VFB.V2, VFB.V3);
+            _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V1); // pre-diffusion
+            _compute.SetFloat("Alpha", dt * _velocityDiffusion * _resolution * _resolution); // pre-diffusion
+            _compute.SetFloat("Beta", 1f / (1f + 4 * (dt * _velocityDiffusion * _resolution * _resolution))); // pre-diffusion
+            
+            for (var i = 0; i < 10; i++)
+            {
+                _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V3); 
+                _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.V2);
+                _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
+            
+                _compute.SetTexture(Kernels.Diffusion, "D_out", VFB.V2); // D2 will be post-diffusion
+                _compute.SetTexture(Kernels.Diffusion, "D_gsbuff", VFB.V3); // GaussSeidel buffer
+                _compute.Dispatch(Kernels.Diffusion, ThreadCountX, ThreadCountY, 1);
+            }
             
             
+            // Projection Setup
+            _compute.SetTexture(Kernels.ProjectionSetup, "V_in", VFB.V2);
+            _compute.SetTexture(Kernels.ProjectionSetup, "H_out", VFB.V3);
+            _compute.Dispatch(Kernels.ProjectionSetup, ThreadCountX, ThreadCountY, 1);
+            
+            Graphics.CopyTexture(VFB.V3, VFB.V1);
+            
+            // Projection - Guass Seidel Relaxation
+            for (var i = 0; i < 10; i++)
+            {
+                _compute.SetTexture(Kernels.Projection, "H_in", VFB.V1); // pre-diffusion
+                _compute.SetTexture(Kernels.Projection, "H_out", VFB.V3); // pre-diffusion
+                _compute.Dispatch(Kernels.Projection, ThreadCountX, ThreadCountY, 1);
+                Graphics.CopyTexture(VFB.V3, VFB.V1);
+
+                _compute.SetTexture(Kernels.Projection, "H_in", VFB.V3); // pre-diffusion
+                _compute.SetTexture(Kernels.Projection, "H_out", VFB.V1); // pre-diffusion
+                _compute.Dispatch(Kernels.Projection, ThreadCountX, ThreadCountY, 1);
+                Graphics.CopyTexture(VFB.V1, VFB.V3);
+            }
+            // V1 is our real H_out at this point
+            
+            // Projection finish
+            _compute.SetTexture(Kernels.ProjectionFinish, "H_in", VFB.V1);
+            _compute.SetTexture(Kernels.ProjectionFinish, "V_out", VFB.V2);
+            _compute.Dispatch(Kernels.ProjectionFinish, ThreadCountX, ThreadCountY, 1);
+            
+            
+            // Advection step - move density along vector field
+            Graphics.CopyTexture(VFB.V2, VFB.V0);
+            Graphics.CopyTexture(VFB.V2, VFB.V1);
+            _compute.SetTexture(Kernels.Advection, "V_in", VFB.V1);
+            _compute.SetTexture(Kernels.Advection, "D_in", VFB.V0);
+            _compute.SetTexture(Kernels.Advection, "D_out", VFB.V2);
+            _compute.Dispatch(Kernels.Advection, ThreadCountX, ThreadCountY, 1);
+
+            
+            // Projection Setup
+            _compute.SetTexture(Kernels.ProjectionSetup, "V_in", VFB.V2);
+            _compute.SetTexture(Kernels.ProjectionSetup, "H_out", VFB.V3);
+            _compute.Dispatch(Kernels.ProjectionSetup, ThreadCountX, ThreadCountY, 1);
+            
+            Graphics.CopyTexture(VFB.V3, VFB.V1);
+            
+            // Projection - Guass Seidel Relaxation
+            for (var i = 0; i < 10; i++)
+            {
+                _compute.SetTexture(Kernels.Projection, "H_in", VFB.V1); // pre-diffusion
+                _compute.SetTexture(Kernels.Projection, "H_out", VFB.V3); // pre-diffusion
+                _compute.Dispatch(Kernels.Projection, ThreadCountX, ThreadCountY, 1);
+                Graphics.CopyTexture(VFB.V3, VFB.V1);
+
+                _compute.SetTexture(Kernels.Projection, "H_in", VFB.V3); // pre-diffusion
+                _compute.SetTexture(Kernels.Projection, "H_out", VFB.V1); // pre-diffusion
+                _compute.Dispatch(Kernels.Projection, ThreadCountX, ThreadCountY, 1);
+                Graphics.CopyTexture(VFB.V1, VFB.V3);
+            }
+            // V1 is our real H_out at this point
+            
+            // Projection finish
+            _compute.SetTexture(Kernels.ProjectionFinish, "H_in", VFB.V1);
+            _compute.SetTexture(Kernels.ProjectionFinish, "V_out", VFB.V2);
+            _compute.Dispatch(Kernels.ProjectionFinish, ThreadCountX, ThreadCountY, 1);
             
             
             // End
             var temp = VFB.D1;
             VFB.D1 = VFB.D2;
             VFB.D2 = temp;
+            
+            Graphics.CopyTexture(VFB.V2, VFB.V1);
+            // Graphics.CopyTexture(VFB.V2, VFB.V0);
+
 
             // temp = VFB.V1;
             // VFB.V1 = VFB.V2;
@@ -256,7 +344,7 @@ namespace StableFluids
         {
             // Graphics.Blit(_colorRT1, destination, _shaderSheet, 1); // render pass
             Graphics.Blit(VFB.D2, destination, _shaderSheet, 1); // render pass
-            // Graphics.Blit    (VFB.V1, destination, _shaderSheet, 1); // render pass
+            // Graphics.Blit(VFB.V2, destination, _shaderSheet, 1); // render pass
         }
 
         #endregion

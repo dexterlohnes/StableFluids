@@ -222,10 +222,10 @@ MonoBehaviour:
   _resolution: 1024
   _diffusion: 800
   _source: 1
-  _sourceDistance: 0.01
+  _sourceDistance: 10
   _initial: {fileID: 2800000, guid: ded36cca018f2e741aa6a4c55495a7f0, type: 3}
   isRunning: 1
-  velocityField: {fileID: 2800000, guid: ff90591f86fbb40168b756e3ae44bb92, type: 3}
+  _velocityDiffusion: 100
   _compute: {fileID: 7200000, guid: e01ca050101b04041a03baa478e587f0, type: 3}
   _shader: {fileID: 4800000, guid: 99d1e86f4d0a943e59f85380ecf80591, type: 3}
 --- !u!20 &1163476468
