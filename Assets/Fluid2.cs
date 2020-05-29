@@ -262,6 +262,7 @@ namespace StableFluids
             
             
             // Projection Setup
+            _compute.SetFloat("h", 1f / VFB.V2.height);
             _compute.SetTexture(Kernels.ProjectionSetup, "V_in", VFB.V2);
             _compute.SetTexture(Kernels.ProjectionSetup, "H_out", VFB.V3);
             _compute.Dispatch(Kernels.ProjectionSetup, ThreadCountX, ThreadCountY, 1);
@@ -321,6 +322,7 @@ namespace StableFluids
             // V1 is our real H_out at this point
             
             // Projection finish
+            _compute.SetFloat("h", VFB.V2.height);
             _compute.SetTexture(Kernels.ProjectionFinish, "H_in", VFB.V1);
             _compute.SetTexture(Kernels.ProjectionFinish, "V_out", VFB.V2);
             _compute.Dispatch(Kernels.ProjectionFinish, ThreadCountX, ThreadCountY, 1);

@@ -12,6 +12,7 @@
 // Common parameter
 float Time;
 float DeltaTime;
+float h;
 
 // Diffusion
 float Diff;
@@ -111,10 +112,10 @@ void CreateVelocityField(uint2 tid : SV_DispatchThreadID) {
 
 [numthreads(8, 8, 1)]
 void ProjectionSetup(uint2 tid : SV_DispatchThreadID) {
-    uint2 dim;
-    V_in.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+    //uint2 dim;
+    //V_in.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
     
-    float h = 1.0 / dim.y;
+    //float h = 1.0 / dim.y;
     
     int i = tid.x;
     int j = tid.y;
@@ -132,13 +133,13 @@ void Projection(uint2 tid : SV_DispatchThreadID) {
 
 [numthreads(8, 8, 1)]
 void ProjectionFinish(uint2 tid : SV_DispatchThreadID) {
-    uint2 dim;
-    V_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
-    float h = 1.0 / dim.y;
+    //uint2 dim;
+    //V_out.GetDimensions(dim.x, dim.y); // dimensions will be in pixels of screen / render target
+    //float h = 1.0 / dim.y;
     
     int i = tid.x;
     int j = tid.y;
     
-    V_out[tid] -= float2(0.5 * (H_in[int2(i+1, j)].x - H_in[int2(i-1,j)].x) / h,
-     0.5 * (H_in[int2(i, j+1)].x - H_in[int2(i,j-1)].x) / h);
+    V_out[tid] -= float2(0.5 * (H_in[int2(i+1, j)].x - H_in[int2(i-1,j)].x) * h,
+     0.5 * (H_in[int2(i, j+1)].x - H_in[int2(i,j-1)].x) * h);
 }
