@@ -74,6 +74,6 @@ public class TextureComparer : MonoBehaviour
 
     private void OnDestroy()
     {
-        buffer.Dispose();
+        buffer?.Dispose();
     }
 }

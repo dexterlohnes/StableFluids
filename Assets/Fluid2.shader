@@ -56,6 +56,35 @@ Shader "Hidden/StableFluids2"
 
         return half4(rgb, 1);
     }
+    
+    half4 frag_render_temp(v2f_img i) : SV_Target
+    {
+        float temp = tex2D(_MainTex, i.uv).r * 2372.;
+        
+        float3 color = half3(0., 0., 0.);
+        
+        float3 black550 = float3(0.2, 0.11, 0.);
+        float3 red1490 = float3(0.76, 0.09, 0.08);
+        float3 yellow2372 = float3(1., 0.91, 0.68);
+        
+        float blacktemp = 1.0;
+
+        if(temp > 2372.) {
+            color = yellow2372;
+        } else if(temp > 1490.) {
+            color = lerp(red1490, yellow2372, (temp - 1490.) / (2372. - 1490.));
+        } else if(temp > 550.) {
+            color = lerp(black550, red1490, (temp - 550.) / (1490. - 550.));
+        } else {
+            color = lerp(color, black550, temp / 550.);
+        }
+
+        // Mixing channels up to get slowly changing false colors
+        //rgb = sin(float3(3.43, 4.43, 3.84) * rgb +
+        //          float3(0.12, 0.23, 0.44) * _Time.y) * 0.5 + 0.5;
+
+        return float4(color, 1);
+    }
 
     ENDCG
 
@@ -74,6 +103,13 @@ Shader "Hidden/StableFluids2"
             CGPROGRAM
             #pragma vertex vert_img
             #pragma fragment frag_render
+            ENDCG
+        }
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert_img
+            #pragma fragment frag_render_temp
             ENDCG
         }
     }

@@ -1,0 +1,37 @@
+﻿// StableFluids - A GPU implementation of Jos Stam's Stable Fluids on Unity
+// Inspired by https://github.com/keijiro/StableFluids
+
+#pragma kernel VorticityConfinement
+
+float Vorticity;
+float DeltaTime;
+float Resolution;
+
+// V (velocity field - physical forces)
+Texture2D<float2> V_in;
+SamplerState samplerV_in;
+
+RWTexture2D<float2> V_out;
+
+
+float Curl(int i, int j) {
+    return V_in[int2(i, j+1)].x - V_in[int2(i, j-1)].x + 
+            V_in[int2(i-1, j)].y - V_in[int2(i+1, j)].y;
+}
+
+[numthreads(8, 8, 1)]
+void VorticityConfinement(uint2 tid : SV_DispatchThreadID)
+{
+    int x = tid.x;
+    int y = tid.y;
+    float2 direction;
+    direction.x = abs(Curl(x, y - 1)) - abs(Curl(x, y+1));
+    direction.y = abs(Curl(x+1, y)) - abs(Curl(x-1, y));
+    
+    direction = Vorticity / (length(direction) + 10000.) * direction;
+    
+    //if (float(tid.x) < Resolution/2.) direction *= 0.0;
+    
+    V_out[tid] = V_out[tid] + DeltaTime * Curl(tid.x, tid.y)*direction;
+    //V_out[tid] = Curl(tid.x, tid.y)*direction;
+}

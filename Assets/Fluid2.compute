@@ -21,7 +21,7 @@ float Beta;
 
 // External source
 float2 SourceOrigin;
-float2 SourceStrength;
+float SourceStrength;
 float SourceDistance; // How far we reach when placing source on an even gradient. 
                       // dist == 0 = SourceStrength. dist >= SourceDistance = 0
 
@@ -46,8 +46,8 @@ RWTexture2D<float2> H_out;
 //SamplerState samplerH_out;
 
 // Add-force step
-//[numthreads(8, 8, 1)]
-[numthreads(1, 1, 1)]
+[numthreads(8, 8, 1)]
+//[numthreads(1, 1, 1)]
 void AddSource(uint2 tid : SV_DispatchThreadID)
 {
     uint2 dim;
@@ -59,7 +59,7 @@ void AddSource(uint2 tid : SV_DispatchThreadID)
     pos.x /= float(dim.x);
     pos.y /= float(dim.y); // normalize based on both axes, not just height which is what the original implementation did
     
-    float2 dist = distance(SourceOrigin, pos);
+    float dist = distance(SourceOrigin, pos);
     
     float amp = max(0, SourceStrength * (1.0 - (dist * SourceDistance)));
     
