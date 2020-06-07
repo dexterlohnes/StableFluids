@@ -222,6 +222,7 @@ MonoBehaviour:
   _resolution: 1024
   _diffusion: 1e+11
   _source: 1
+  _tempAdd: 0.01
   _force: 10
   _sourceDistance: 10
   _forceDistance: 50
@@ -229,6 +230,11 @@ MonoBehaviour:
   isRunning: 1
   _velocityDiffusion: 100
   _vorticityConfinement: 1000
+  mode: 0
+  _fuelDensity: 10
+  _fuelConversionRate: 1
+  _minPyrolysisTemp: 451
+  _maxPyrolysisTemp: 3000
   _compute: {fileID: 7200000, guid: e01ca050101b04041a03baa478e587f0, type: 3}
   _curl: {fileID: 7200000, guid: 29cc142eb63aa4e0fa77a076cb7f08e7, type: 3}
   _shader: {fileID: 4800000, guid: 99d1e86f4d0a943e59f85380ecf80591, type: 3}

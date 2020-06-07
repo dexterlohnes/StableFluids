@@ -8,11 +8,21 @@
 #pragma kernel ProjectionSetup
 #pragma kernel Projection
 #pragma kernel ProjectionFinish
+#pragma kernel Pyrolysis
+// Diffusion - but only on channel 1 (r)
+#pragma kernel GaussSeidelChannelOne 
+#pragma kernel FuelCombine 
 
 // Common parameter
 float Time;
 float DeltaTime;
 float h;
+
+//Pyrolysis
+float FuelDensity; // G channel (gas) per unit of R channel (solid)
+float FuelConversionRate; // how much R is coverted into G when we are at MaxPyrolysisTemp?
+float MinPyrolysisTemp; // minimum temperature at which pyrolysis takes place
+float MaxPyrolysisTemp; // temperature at which we achieve maximum pyrolysis
 
 // Diffusion
 float Diff;
@@ -43,7 +53,30 @@ SamplerState samplerV_out;
 Texture2D<float2> H_in;
 SamplerState samplerH_in;
 RWTexture2D<float2> H_out;
+
+// FS - fuel (solid)
+Texture2D<float2> FS_in;
+SamplerState samplerFS_in;
+RWTexture2D<float2> FS_out;
+// FG - fuel (gaseous)
+Texture2D<float2> FG_in;
+SamplerState samplerFG_in;
+RWTexture2D<float2> FG_out;
+
+RWTexture2D<float2> FSG_out; // both channels
+
+// T - temperature
+Texture2D<float2> T_in;
+SamplerState samplerT_in;
+RWTexture2D<float2> T_out;
+
 //SamplerState samplerH_out;
+
+/*
+RWStructuredBuffer<float> temperature;
+RWStructuredBuffer<float> solid; // solid fuel - pre-pyrolysis
+RWStructuredBuffer<float> gas; // gaseous fuel
+*/
 
 // Add-force step
 [numthreads(8, 8, 1)]
@@ -65,7 +98,7 @@ void AddSource(uint2 tid : SV_DispatchThreadID)
     
     // Since we're adding source on top of something,
     // D_out and D_in are probably going to be the same target
-    D_out[tid] = D_in[tid] + amp;
+    D_out[tid] = D_in[tid] + float2(amp, 0.);
 }
 
 // Our diffusion step
@@ -142,4 +175,32 @@ void ProjectionFinish(uint2 tid : SV_DispatchThreadID) {
     
     V_out[tid] -= float2(0.5 * (H_in[int2(i+1, j)].x - H_in[int2(i-1,j)].x) * h,
      0.5 * (H_in[int2(i, j+1)].x - H_in[int2(i,j-1)].x) * h);
+}
+
+[numthreads(8, 8, 1)]
+void Pyrolysis(uint2 tid : SV_DispatchThreadID) {
+    float amountSolidRemoved = min(FS_in[tid], lerp(0., FuelConversionRate, saturate((((T_in[tid] * 10000.) - MinPyrolysisTemp) / MaxPyrolysisTemp))));
+    //F_out[tid] = float2(F_in[tid].r - amountSolidRemoved, F_in[tid].g + amountSolidRemoved * FuelDensity);
+    FS_out[tid] = FS_in[tid] - amountSolidRemoved;
+    FG_out[tid] = FG_out[tid] + amountSolidRemoved * FuelDensity;
+}
+
+// Our diffusion step
+[numthreads(8, 8, 1)]
+void GaussSeidelChannelOne(uint2 tid : SV_DispatchThreadID)
+{
+     D_out[tid] = float2(D_out[tid].r,
+     (D_in[tid].g + Alpha * (
+        D_gsbuff[tid - int2(1, 0)].g  + 
+        D_gsbuff[tid + int2(1, 0)].g +
+        D_gsbuff[tid - int2(0, 1)].g +
+        D_gsbuff[tid + int2(0, 1)].g)
+    ) * Beta);
+}
+
+// Our diffusion step
+[numthreads(8, 8, 1)]
+void FuelCombine(uint2 tid : SV_DispatchThreadID)
+{
+    FSG_out[tid] = float2(FS_in[tid].r, FG_in[tid].r);
 }

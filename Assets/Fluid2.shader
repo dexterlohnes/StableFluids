@@ -59,15 +59,15 @@ Shader "Hidden/StableFluids2"
     
     half4 frag_render_temp(v2f_img i) : SV_Target
     {
-        float temp = tex2D(_MainTex, i.uv).r * 2372.;
+        half temp = tex2D(_MainTex, i.uv).r * 10000.;
         
-        float3 color = half3(0., 0., 0.);
+        half3 color = half3(0., 0., 0.);
         
-        float3 black550 = float3(0.2, 0.11, 0.);
-        float3 red1490 = float3(0.76, 0.09, 0.08);
-        float3 yellow2372 = float3(1., 0.91, 0.68);
+        half3 black550 = half3(0.2, 0.11, 0.);
+        half3 red1490 = half3(0.76, 0.09, 0.08);
+        half3 yellow2372 = half3(1., 0.91, 0.68);
         
-        float blacktemp = 1.0;
+        half blacktemp = 1.0;
 
         if(temp > 2372.) {
             color = yellow2372;
@@ -80,12 +80,12 @@ Shader "Hidden/StableFluids2"
         }
 
         // Mixing channels up to get slowly changing false colors
-        //rgb = sin(float3(3.43, 4.43, 3.84) * rgb +
-        //          float3(0.12, 0.23, 0.44) * _Time.y) * 0.5 + 0.5;
+        //rgb = sin(half3(3.43, 4.43, 3.84) * rgb +
+        //          half3(0.12, 0.23, 0.44) * _Time.y) * 0.5 + 0.5;
 
-        return float4(color, 1);
+        return half4(color, 1);
     }
-
+    
     ENDCG
 
     SubShader
