@@ -7,12 +7,14 @@ Shader "Hidden/StableFluids2"
     {
         _MainTex("", 2D) = ""
         _VelocityField("", 2D) = ""
+        _SecondaryTex("", 2D) = ""
     }
 
     CGINCLUDE
 
     #include "UnityCG.cginc"
 
+    sampler2D _SecondaryTex;
     sampler2D _MainTex;
     float4 _MainTex_TexelSize;
 
@@ -61,7 +63,8 @@ Shader "Hidden/StableFluids2"
     {
         half temp = tex2D(_MainTex, i.uv).r * 10000.;
         
-        half3 color = half3(0., 0., 0.);
+        //half3 color = half3(0., 0., 0.);
+        half3 color = tex2D(_SecondaryTex, i.uv).rgb;
         
         half3 black550 = half3(0.2, 0.11, 0.);
         half3 red1490 = half3(0.76, 0.09, 0.08);

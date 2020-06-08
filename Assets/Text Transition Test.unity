@@ -222,16 +222,16 @@ MonoBehaviour:
   _resolution: 1024
   _diffusion: 1e+11
   _source: 1
-  _tempAdd: 0.01
+  _tempAdd: 0.05
   _force: 10
-  _sourceDistance: 10
+  _sourceDistance: 100
   _forceDistance: 50
   _initial: {fileID: 2800000, guid: ded36cca018f2e741aa6a4c55495a7f0, type: 3}
   isRunning: 1
   _velocityDiffusion: 100
   _vorticityConfinement: 1000
   mode: 0
-  _fuelDensity: 10
+  _fuelDensity: 1
   _fuelConversionRate: 1
   _minPyrolysisTemp: 451
   _maxPyrolysisTemp: 3000

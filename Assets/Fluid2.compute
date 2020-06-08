@@ -12,6 +12,7 @@
 // Diffusion - but only on channel 1 (r)
 #pragma kernel GaussSeidelChannelOne 
 #pragma kernel FuelCombine 
+#pragma kernel Combustion 
 
 // Common parameter
 float Time;
@@ -20,7 +21,7 @@ float h;
 
 //Pyrolysis
 float FuelDensity; // G channel (gas) per unit of R channel (solid)
-float FuelConversionRate; // how much R is coverted into G when we are at MaxPyrolysisTemp?
+float FuelConversionRate; // how much R is coverted into G when we are at MaxPyrolysisTemp? also, how much G is converted into Temp (temp units, not degrees)
 float MinPyrolysisTemp; // minimum temperature at which pyrolysis takes place
 float MaxPyrolysisTemp; // temperature at which we achieve maximum pyrolysis
 
@@ -34,6 +35,11 @@ float2 SourceOrigin;
 float SourceStrength;
 float SourceDistance; // How far we reach when placing source on an even gradient. 
                       // dist == 0 = SourceStrength. dist >= SourceDistance = 0
+      
+// Combustion                
+float GasToDegrees; // Units of temp (in degrees, not color units) per 1 unit of Gas fuel
+float TempToDegrees; // Degrees per 1 unit of gas (last we set it, was 10000.)
+float GasCombustionTemp; // Degrees at which green gas combusts into flame. If kept equal to MinPyrolysisTemp, solid -> gas -> flame all takes place at once
 
 // D (density field - smoke)
 Texture2D<float2> D_in;
@@ -203,4 +209,18 @@ void GaussSeidelChannelOne(uint2 tid : SV_DispatchThreadID)
 void FuelCombine(uint2 tid : SV_DispatchThreadID)
 {
     FSG_out[tid] = float2(FS_in[tid].r, FG_in[tid].r);
+}
+
+// Our diffusion step
+[numthreads(8, 8, 1)]
+void Combustion(uint2 tid : SV_DispatchThreadID)
+{
+    // degrees = T_in[tid] * 10000.
+    int combustionAchieved = saturate(sign(T_in[tid] * TempToDegrees - GasCombustionTemp) + 1); // will be either 0 or 1 
+    // 1. How much gas is going to be converted into temp?
+    float gasConverted = min(FG_in[tid], FuelConversionRate * combustionAchieved); // we never convert more than we start with
+    // 2. Subtract that amount of gas from the gas texture
+    FG_out[tid] = FG_in[tid] - gasConverted;
+    // 3. Convert that gas into temp and add it to the current temp
+    T_out[tid] = T_in[tid] + gasConverted * GasToDegrees / TempToDegrees;;
 }
